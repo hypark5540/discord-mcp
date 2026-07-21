@@ -109,6 +109,12 @@ assert(
   "The deterministic ZIP implementation must stay exactly pinned to fflate 0.8.2.",
 );
 assert(
+  packageJson.overrides?.["@hono/node-server"] === "2.0.11" &&
+    packageLock.packages?.["node_modules/@hono/node-server"]?.version ===
+      "2.0.11",
+  "The MCP SDK's transitive Hono adapter must stay on the patched 2.0.11 release.",
+);
+assert(
   packageJson.overrides?.tmp === "0.2.7" &&
     packageLock.packages?.["node_modules/tmp"]?.version === "0.2.7",
   "The MCPB CLI's transitive tmp dependency must stay on the patched 0.2.7 release.",
