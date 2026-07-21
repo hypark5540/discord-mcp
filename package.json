@@ -78,7 +78,7 @@
     "esbuild": "^0.28.1",
     "fflate": "0.8.2",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10",
     "zod": "^4.4.3"
   }
