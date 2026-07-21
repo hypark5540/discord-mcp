@@ -1,0 +1,58 @@
+{
+  "name": "discord-mcp",
+  "version": "0.1.0",
+  "description": "Safe, configurable Discord access through the Model Context Protocol",
+  "mcpServers": {
+    "discord": {
+      "command": "npx",
+      "args": ["-y", "@hypark5540/discord-mcp@0.1.0"],
+      "env": {
+        "DISCORD_TOKEN": "${DISCORD_TOKEN}",
+        "DISCORD_ALLOWED_GUILD_IDS": "${DISCORD_ALLOWED_GUILD_IDS:-}",
+        "DISCORD_ALLOWED_CHANNEL_IDS": "${DISCORD_ALLOWED_CHANNEL_IDS:-}",
+        "DISCORD_ENABLE_WRITES": "${DISCORD_ENABLE_WRITES:-false}",
+        "DISCORD_ENABLE_DELETES": "${DISCORD_ENABLE_DELETES:-false}",
+        "DISCORD_ALLOW_UNRESTRICTED_WRITES": "${DISCORD_ALLOW_UNRESTRICTED_WRITES:-false}",
+        "DISCORD_MAX_RESPONSE_CHARS": "${DISCORD_MAX_RESPONSE_CHARS:-50000}"
+      }
+    }
+  },
+  "settings": [
+    {
+      "name": "Discord Bot Token",
+      "description": "Bot token from the Discord Developer Portal. Never use a user token.",
+      "envVar": "DISCORD_TOKEN",
+      "sensitive": true
+    },
+    {
+      "name": "Allowed Discord server IDs",
+      "description": "Optional comma-separated guild IDs. Leave blank to use every guild visible to the bot.",
+      "envVar": "DISCORD_ALLOWED_GUILD_IDS"
+    },
+    {
+      "name": "Allowed Discord channel IDs",
+      "description": "Optional comma-separated channel IDs. Leave blank to use every channel in an allowed guild.",
+      "envVar": "DISCORD_ALLOWED_CHANNEL_IDS"
+    },
+    {
+      "name": "Enable message writes",
+      "description": "Set true to expose send and own-message edit tools. The default is false.",
+      "envVar": "DISCORD_ENABLE_WRITES"
+    },
+    {
+      "name": "Enable message deletes",
+      "description": "Set true to expose confirmed own-message deletes. Writes must also be enabled.",
+      "envVar": "DISCORD_ENABLE_DELETES"
+    },
+    {
+      "name": "Allow writes without an allowlist",
+      "description": "Set true only to deliberately permit writes in every visible guild channel.",
+      "envVar": "DISCORD_ALLOW_UNRESTRICTED_WRITES"
+    },
+    {
+      "name": "Maximum response characters",
+      "description": "Optional integer from 1000 to 200000. The default is 50000.",
+      "envVar": "DISCORD_MAX_RESPONSE_CHARS"
+    }
+  ]
+}

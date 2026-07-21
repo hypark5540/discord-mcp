@@ -1,0 +1,162 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.hypark5540/discord-mcp",
+  "title": "Discord MCP",
+  "description": "Safe Discord access for reading guild data and optionally managing bot messages",
+  "websiteUrl": "https://github.com/hypark5540/discord-mcp",
+  "repository": {
+    "url": "https://github.com/hypark5540/discord-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@hypark5540/discord-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DISCORD_TOKEN",
+          "description": "Discord bot token",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DISCORD_ENABLE_WRITES",
+          "description": "Expose message send and edit tools",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ENABLE_DELETES",
+          "description": "Expose the own-message delete tool; writes must also be enabled",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ALLOW_UNRESTRICTED_WRITES",
+          "description": "Permit writes without a guild or channel allowlist",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ALLOWED_GUILD_IDS",
+          "description": "Comma-separated Discord guild IDs"
+        },
+        {
+          "name": "DISCORD_ALLOWED_CHANNEL_IDS",
+          "description": "Comma-separated Discord channel IDs"
+        },
+        {
+          "name": "DISCORD_MAX_RESPONSE_CHARS",
+          "description": "Maximum serialized MCP response size in characters",
+          "default": "50000",
+          "format": "number"
+        }
+      ]
+    },
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "hypark-discord-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DISCORD_TOKEN",
+          "description": "Discord bot token",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DISCORD_ENABLE_WRITES",
+          "description": "Expose message send and edit tools",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ENABLE_DELETES",
+          "description": "Expose the own-message delete tool; writes must also be enabled",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ALLOW_UNRESTRICTED_WRITES",
+          "description": "Permit writes without a guild or channel allowlist",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ALLOWED_GUILD_IDS",
+          "description": "Comma-separated Discord guild IDs"
+        },
+        {
+          "name": "DISCORD_ALLOWED_CHANNEL_IDS",
+          "description": "Comma-separated Discord channel IDs"
+        },
+        {
+          "name": "DISCORD_MAX_RESPONSE_CHARS",
+          "description": "Maximum serialized MCP response size in characters",
+          "default": "50000",
+          "format": "number"
+        }
+      ]
+    },
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/hypark5540/discord-mcp:0.1.0",
+      "runtimeHint": "docker",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DISCORD_TOKEN",
+          "description": "Discord bot token",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DISCORD_ENABLE_WRITES",
+          "description": "Expose message send and edit tools",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ENABLE_DELETES",
+          "description": "Expose the own-message delete tool; writes must also be enabled",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ALLOW_UNRESTRICTED_WRITES",
+          "description": "Permit writes without a guild or channel allowlist",
+          "default": "false",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "DISCORD_ALLOWED_GUILD_IDS",
+          "description": "Comma-separated Discord guild IDs"
+        },
+        {
+          "name": "DISCORD_ALLOWED_CHANNEL_IDS",
+          "description": "Comma-separated Discord channel IDs"
+        },
+        {
+          "name": "DISCORD_MAX_RESPONSE_CHARS",
+          "description": "Maximum serialized MCP response size in characters",
+          "default": "50000",
+          "format": "number"
+        }
+      ]
+    }
+  ]
+}

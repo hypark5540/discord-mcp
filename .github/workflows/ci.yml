@@ -1,0 +1,239 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Authenticate the Codecov upload through GitHub OIDC.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm run deps:locked
+      - run: npm run check
+      - name: Upload Node 22 coverage to Codecov with OIDC
+        if: >-
+          matrix.node == 22 &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+        with:
+          use_oidc: true
+          files: coverage/lcov.info
+          disable_search: true
+          fail_ci_if_error: true
+
+  packages:
+    name: Installed artifacts
+    needs: node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: npm
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.29"
+      - run: npm run deps:locked
+      - run: npm run check
+      - name: Validate registry metadata and CycloneDX SBOM
+        run: |
+          uvx --from check-jsonschema==0.37.4 check-jsonschema --schemafile https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json server.json
+          uvx --from check-jsonschema==0.37.4 check-jsonschema --schemafile https://cyclonedx.org/schema/bom-1.6.schema.json bundle/sbom.cdx.json
+
+      - name: Build npm, PyPI, and MCPB artifacts
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-package"
+          npm pack --pack-destination "$RUNNER_TEMP/npm-package"
+          npm run build:pypi
+          npm run build:mcpb
+
+      - name: Verify deterministic MCPB artifact
+        run: npm run verify:mcpb
+
+      - name: Smoke-test installed npm package
+        run: | # zizmor: ignore[adhoc-packages] Installs only the local, just-built tarball in an isolated prefix.
+          mkdir -p "$RUNNER_TEMP/npm-smoke"
+          npm install --ignore-scripts --prefix "$RUNNER_TEMP/npm-smoke" "$RUNNER_TEMP"/npm-package/*.tgz
+          node scripts/smoke-stdio.mjs "$RUNNER_TEMP/npm-smoke/node_modules/.bin/discord-mcp"
+
+      - name: Smoke-test installed Python wheel
+        run: |
+          uv venv "$RUNNER_TEMP/python-smoke"
+          uv pip install --python "$RUNNER_TEMP/python-smoke/bin/python" python/dist/*.whl
+          node scripts/smoke-stdio.mjs "$RUNNER_TEMP/python-smoke/bin/hypark-discord-mcp"
+          uvx --from python/dist/*.whl hypark-discord-mcp --version
+          uvx --from pipx==1.16.1 pipx run --spec "$GITHUB_WORKSPACE"/python/dist/*.whl discord-mcp --version
+
+      - name: Inspect package contents
+        run: |
+          tar -tzf "$RUNNER_TEMP"/npm-package/*.tgz | grep 'package/bundle/discord-mcp.cjs'
+          tar -tzf "$RUNNER_TEMP"/npm-package/*.tgz | grep 'package/bundle/THIRD_PARTY_NOTICES.txt'
+          tar -tzf "$RUNNER_TEMP"/npm-package/*.tgz | grep 'package/bundle/sbom.cdx.json'
+          unzip -l python/dist/*.whl | grep 'hypark_discord_mcp/_bundled/server.cjs'
+          unzip -l python/dist/*.whl | grep 'hypark_discord_mcp/_bundled/THIRD_PARTY_NOTICES.txt'
+          unzip -l python/dist/*.whl | grep 'hypark_discord_mcp/_bundled/sbom.cdx.json'
+          tar -xOzf "$RUNNER_TEMP"/npm-package/*.tgz package/bundle/discord-mcp.cjs > "$RUNNER_TEMP/npm-bundle.cjs"
+          unzip -p python/dist/*.whl '*/_bundled/server.cjs' > "$RUNNER_TEMP/python-bundle.cjs"
+          cmp "$RUNNER_TEMP/npm-bundle.cjs" "$RUNNER_TEMP/python-bundle.cjs"
+          tar -xOzf "$RUNNER_TEMP"/npm-package/*.tgz package/bundle/THIRD_PARTY_NOTICES.txt > "$RUNNER_TEMP/npm-notices.txt"
+          unzip -p python/dist/*.whl '*/_bundled/THIRD_PARTY_NOTICES.txt' > "$RUNNER_TEMP/python-notices.txt"
+          cmp "$RUNNER_TEMP/npm-notices.txt" "$RUNNER_TEMP/python-notices.txt"
+          tar -xOzf "$RUNNER_TEMP"/npm-package/*.tgz package/bundle/sbom.cdx.json > "$RUNNER_TEMP/npm-sbom.cdx.json"
+          unzip -p python/dist/*.whl '*/_bundled/sbom.cdx.json' > "$RUNNER_TEMP/python-sbom.cdx.json"
+          cmp "$RUNNER_TEMP/npm-sbom.cdx.json" "$RUNNER_TEMP/python-sbom.cdx.json"
+          unzip -Z1 release-artifacts/mcpb/*.mcpb | diff -u - <(printf '%s\n' LICENSE manifest.json server/THIRD_PARTY_NOTICES.txt server/discord-mcp.cjs server/sbom.cdx.json)
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: package-candidates
+          path: |
+            ${{ runner.temp }}/npm-package/*.tgz
+            python/dist/*
+            release-artifacts/mcpb/*.mcpb
+          if-no-files-found: error
+          retention-days: 30
+
+  python-launcher:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    needs: packages
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.9", "3.14"]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.29"
+          enable-cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: package-candidates
+          path: package-candidates
+      - name: Run wheel launcher
+        shell: bash
+        env:
+          PYTHON_VERSION: ${{ matrix.python }}
+        run: |
+          uv python install "$PYTHON_VERSION"
+          WHEEL="$(find package-candidates -name '*.whl' -print -quit)"
+          test -n "$WHEEL"
+          test "$(uvx --python "$PYTHON_VERSION" --from "$WHEEL" hypark-discord-mcp --version)" = "$(node -p "require('./package.json').version")"
+
+  package-runners:
+    name: npx, pnpm, Yarn, and bunx
+    needs: node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+      - run: npm run deps:locked
+      - name: Pack once
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-package"
+          npm pack --pack-destination "$RUNNER_TEMP/npm-package"
+      - name: npx
+        run: |
+          npx --yes --package="$RUNNER_TEMP"/npm-package/*.tgz -- discord-mcp --version
+          npx --yes --package="$RUNNER_TEMP"/npm-package/*.tgz -- hypark-discord-mcp --version
+      - name: pnpm dlx
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.15.1 --activate
+          pnpm dlx --package="$RUNNER_TEMP"/npm-package/*.tgz discord-mcp --version
+      - name: Yarn dlx
+        run: |
+          corepack prepare yarn@4.17.1 --activate
+          yarn dlx -p "$RUNNER_TEMP"/npm-package/*.tgz discord-mcp --version
+      - name: bunx
+        run: bunx --package "$RUNNER_TEMP"/npm-package/*.tgz discord-mcp --version
+
+  docker:
+    name: Docker stdio
+    needs: node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm run deps:locked
+      - run: npm run build:bundle
+      - name: Build image
+        run: docker build --tag discord-mcp:ci .
+      - name: Verify image bundle identity
+        run: |
+          CONTAINER="$(docker create discord-mcp:ci)"
+          docker cp "$CONTAINER:/app/bundle/discord-mcp.cjs" "$RUNNER_TEMP/docker-bundle.cjs"
+          docker cp "$CONTAINER:/app/bundle/THIRD_PARTY_NOTICES.txt" "$RUNNER_TEMP/docker-notices.txt"
+          docker cp "$CONTAINER:/app/bundle/sbom.cdx.json" "$RUNNER_TEMP/docker-sbom.cdx.json"
+          docker rm "$CONTAINER"
+          cmp bundle/discord-mcp.cjs "$RUNNER_TEMP/docker-bundle.cjs"
+          cmp bundle/THIRD_PARTY_NOTICES.txt "$RUNNER_TEMP/docker-notices.txt"
+          cmp bundle/sbom.cdx.json "$RUNNER_TEMP/docker-sbom.cdx.json"
+      - name: Smoke-test image
+        run: node scripts/smoke-stdio.mjs docker run --rm -i -e DISCORD_TOKEN=smoke-test-token discord-mcp:ci
+
+  gate:
+    name: CI pass
+    if: always()
+    needs: [node, packages, python-launcher, package-runners, docker]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Fail if any required job did not pass
+        if: >-
+          needs.node.result != 'success' ||
+          needs.packages.result != 'success' ||
+          needs['python-launcher'].result != 'success' ||
+          needs['package-runners'].result != 'success' ||
+          needs.docker.result != 'success'
+        run: exit 1
+      - name: Confirm the full compatibility matrix passed
+        run: echo "All required CI jobs passed."

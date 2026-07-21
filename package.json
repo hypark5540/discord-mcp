@@ -1,0 +1,85 @@
+{
+  "name": "@hypark5540/discord-mcp",
+  "version": "0.1.0",
+  "description": "A safe, configurable Model Context Protocol server for Discord",
+  "type": "module",
+  "mcpName": "io.github.hypark5540/discord-mcp",
+  "bin": {
+    "discord-mcp": "bundle/discord-mcp.cjs",
+    "hypark-discord-mcp": "bundle/discord-mcp.cjs"
+  },
+  "files": [
+    "bundle",
+    "README.md",
+    "LICENSE",
+    "PRIVACY.md",
+    "SECURITY.md",
+    ".env.example",
+    "mcp.example.json",
+    "server.json"
+  ],
+  "scripts": {
+    "deps:locked": "npm ci --ignore-scripts && npm rebuild esbuild@0.28.1 --ignore-scripts=false",
+    "build": "tsc -p tsconfig.build.json",
+    "build:bundle": "node scripts/bundle-python.mjs",
+    "build:mcpb": "npm run check:versions && npm run build:bundle && node scripts/build-mcpb.mjs",
+    "build:npm-bootstrap": "node scripts/build-npm-bootstrap.mjs",
+    "build:pypi": "npm run check:versions && npm run build:bundle && uv build --out-dir python/dist",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "check:versions": "node scripts/check-versions.mjs",
+    "verify:sbom": "node scripts/verify-sbom.mjs",
+    "verify:mcpb": "node scripts/verify-mcpb.mjs",
+    "smoke": "node scripts/smoke-stdio.mjs node dist/index.js",
+    "smoke:bundle": "node scripts/smoke-stdio.mjs node bundle/discord-mcp.cjs",
+    "check": "npm run check:versions && npm run typecheck && npm run test:coverage && npm run build && npm run build:bundle && npm run verify:sbom && npm run smoke && npm run smoke:bundle && node scripts/build-mcpb.mjs && npm run verify:mcpb",
+    "prepack": "npm run check:versions && npm run build && npm run build:bundle && npm run verify:sbom"
+  },
+  "keywords": [
+    "discord",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "author": "hypark5540",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hypark5540/discord-mcp.git"
+  },
+  "homepage": "https://github.com/hypark5540/discord-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/hypark5540/discord-mcp/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "tmp": "0.2.7"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "fsevents": false
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2",
+    "@discordjs/rest": "^2.6.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@types/node": "^22.20.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "discord-api-types": "^0.38.50",
+    "dotenv": "^17.4.2",
+    "esbuild": "^0.28.1",
+    "fflate": "0.8.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.10",
+    "zod": "^4.4.3"
+  }
+}

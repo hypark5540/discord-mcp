@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "discord": {
+      "command": "npx",
+      "args": ["-y", "@hypark5540/discord-mcp@0.1.0"],
+      "env": {
+        "DISCORD_TOKEN": "replace-with-your-bot-token",
+        "DISCORD_ENABLE_WRITES": "false",
+        "DISCORD_ENABLE_DELETES": "false",
+        "DISCORD_ALLOW_UNRESTRICTED_WRITES": "false",
+        "DISCORD_ALLOWED_GUILD_IDS": "",
+        "DISCORD_ALLOWED_CHANNEL_IDS": ""
+      }
+    }
+  }
+}

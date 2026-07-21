@@ -1,0 +1,97 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.3.schema.json",
+  "manifest_version": "0.3",
+  "name": "discord-mcp",
+  "display_name": "Discord MCP",
+  "version": "0.1.0",
+  "description": "Safe, configurable Discord access through the Model Context Protocol",
+  "long_description": "Read Discord servers, channels, and messages through a local MCP server. Message writes and deletes remain disabled unless the user explicitly enables them, and allowlists can restrict access to selected guilds and channels.",
+  "author": {
+    "name": "hypark5540",
+    "url": "https://github.com/hypark5540"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hypark5540/discord-mcp.git"
+  },
+  "homepage": "https://github.com/hypark5540/discord-mcp",
+  "documentation": "https://github.com/hypark5540/discord-mcp/blob/main/docs/clients.md",
+  "support": "https://github.com/hypark5540/discord-mcp/issues",
+  "server": {
+    "type": "node",
+    "entry_point": "server/discord-mcp.cjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/discord-mcp.cjs"],
+      "env": {
+        "DISCORD_TOKEN": "${user_config.discord_token}",
+        "DISCORD_ALLOWED_GUILD_IDS": "${user_config.allowed_guild_ids}",
+        "DISCORD_ALLOWED_CHANNEL_IDS": "${user_config.allowed_channel_ids}",
+        "DISCORD_ENABLE_WRITES": "${user_config.enable_writes}",
+        "DISCORD_ENABLE_DELETES": "${user_config.enable_deletes}",
+        "DISCORD_ALLOW_UNRESTRICTED_WRITES": "${user_config.allow_unrestricted_writes}",
+        "DISCORD_MAX_RESPONSE_CHARS": "${user_config.max_response_chars}"
+      }
+    }
+  },
+  "tools_generated": true,
+  "keywords": ["discord", "mcp", "model-context-protocol"],
+  "license": "MIT",
+  "privacy_policies": [
+    "https://github.com/hypark5540/discord-mcp/blob/main/PRIVACY.md",
+    "https://discord.com/privacy"
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=22"
+    }
+  },
+  "user_config": {
+    "discord_token": {
+      "type": "string",
+      "title": "Discord Bot Token",
+      "description": "Bot token from the Discord Developer Portal. Never use a user token.",
+      "required": true,
+      "sensitive": true
+    },
+    "allowed_guild_ids": {
+      "type": "string",
+      "title": "Allowed Discord server IDs",
+      "description": "Optional comma-separated guild IDs. Leave empty to allow every guild visible to the bot.",
+      "default": ""
+    },
+    "allowed_channel_ids": {
+      "type": "string",
+      "title": "Allowed Discord channel IDs",
+      "description": "Optional comma-separated channel IDs. Leave empty to allow every channel in an allowed guild.",
+      "default": ""
+    },
+    "enable_writes": {
+      "type": "boolean",
+      "title": "Enable message writes",
+      "description": "Expose tools that send messages and edit messages created by this bot.",
+      "default": false
+    },
+    "enable_deletes": {
+      "type": "boolean",
+      "title": "Enable message deletes",
+      "description": "Expose the delete tool. Writes must also be enabled, and each delete still requires confirmation.",
+      "default": false
+    },
+    "allow_unrestricted_writes": {
+      "type": "boolean",
+      "title": "Allow writes without an allowlist",
+      "description": "Permit writes when both guild and channel allowlists are empty. Keep disabled for normal use.",
+      "default": false
+    },
+    "max_response_chars": {
+      "type": "number",
+      "title": "Maximum response characters",
+      "description": "Maximum serialized size of a tool or resource response.",
+      "default": 50000,
+      "min": 1000,
+      "max": 200000
+    }
+  }
+}

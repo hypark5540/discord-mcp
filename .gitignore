@@ -1,0 +1,16 @@
+node_modules/
+dist/
+bundle/
+release-artifacts/
+python/dist/
+python/src/hypark_discord_mcp/_bundled/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.venv/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+.DS_Store

@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hypark-discord-mcp"
+version = "0.1.0"
+description = "A safe, configurable Model Context Protocol server for Discord"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [
+  { name = "hypark5540", email = "hypark5540@naver.com" },
+]
+keywords = ["discord", "mcp", "model-context-protocol"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/hypark5540/discord-mcp"
+Repository = "https://github.com/hypark5540/discord-mcp"
+Issues = "https://github.com/hypark5540/discord-mcp/issues"
+
+[project.scripts]
+discord-mcp = "hypark_discord_mcp.__main__:main"
+hypark-discord-mcp = "hypark_discord_mcp.__main__:main"
+
+[tool.hatch.build]
+artifacts = [
+  "python/src/hypark_discord_mcp/_bundled/server.cjs",
+  "python/src/hypark_discord_mcp/_bundled/THIRD_PARTY_NOTICES.txt",
+  "python/src/hypark_discord_mcp/_bundled/sbom.cdx.json",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/src/hypark_discord_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/python/src/hypark_discord_mcp",
+]

@@ -1,0 +1,619 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  validate:
+    name: Validate release artifacts
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_DATE_EPOCH: "946684800"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.29"
+          enable-cache: false
+      - run: npm run deps:locked
+      - name: Audit locked dependencies and registry signatures
+        run: |
+          npm audit --audit-level=high
+          npm audit signatures
+      - name: Match tag to package version
+        run: |
+          TAG_COMMIT="$(git rev-parse "$GITHUB_REF_NAME^{commit}")"
+          test "$TAG_COMMIT" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$TAG_COMMIT" refs/remotes/origin/main
+          VERSION="$(node -p "require('./package.json').version")"
+          test "$GITHUB_REF_NAME" = "v$VERSION"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Automated releases accept stable SemVer versions only." >&2
+            exit 1
+          fi
+      - run: npm run check
+      - name: Validate registry metadata and CycloneDX SBOM
+        run: |
+          uvx --from check-jsonschema==0.37.4 check-jsonschema --schemafile https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json server.json
+          uvx --from check-jsonschema==0.37.4 check-jsonschema --schemafile https://cyclonedx.org/schema/bom-1.6.schema.json bundle/sbom.cdx.json
+      - name: Build release artifacts
+        run: |
+          mkdir -p release-artifacts/npm release-artifacts/mcpb
+          npm pack --pack-destination release-artifacts/npm
+          npm run build:pypi
+          npm run build:mcpb
+          npm run verify:mcpb
+          MCPB_FILE="discord-mcp-${GITHUB_REF_NAME#v}.mcpb"
+          test -f "release-artifacts/mcpb/$MCPB_FILE"
+          (
+            cd release-artifacts/mcpb
+            sha256sum "$MCPB_FILE" > "$MCPB_FILE.sha256"
+          )
+      - name: Verify reproducible npm and PyPI archives
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-repro" "$RUNNER_TEMP/pypi-repro"
+          npm pack --pack-destination "$RUNNER_TEMP/npm-repro"
+          uv build --out-dir "$RUNNER_TEMP/pypi-repro"
+          cmp release-artifacts/npm/*.tgz "$RUNNER_TEMP/npm-repro"/*.tgz
+          for CANDIDATE in python/dist/*; do
+            NAME="$(basename "$CANDIDATE")"
+            cmp "$CANDIDATE" "$RUNNER_TEMP/pypi-repro/$NAME"
+          done
+      - name: Verify cross-registry bundle identity
+        run: |
+          tar -xOzf release-artifacts/npm/*.tgz package/bundle/discord-mcp.cjs > "$RUNNER_TEMP/npm-bundle.cjs"
+          unzip -p python/dist/*.whl '*/_bundled/server.cjs' > "$RUNNER_TEMP/python-bundle.cjs"
+          cmp "$RUNNER_TEMP/npm-bundle.cjs" "$RUNNER_TEMP/python-bundle.cjs"
+          tar -xOzf release-artifacts/npm/*.tgz package/bundle/THIRD_PARTY_NOTICES.txt > "$RUNNER_TEMP/npm-notices.txt"
+          unzip -p python/dist/*.whl '*/_bundled/THIRD_PARTY_NOTICES.txt' > "$RUNNER_TEMP/python-notices.txt"
+          cmp "$RUNNER_TEMP/npm-notices.txt" "$RUNNER_TEMP/python-notices.txt"
+          tar -xOzf release-artifacts/npm/*.tgz package/bundle/sbom.cdx.json > "$RUNNER_TEMP/npm-sbom.cdx.json"
+          unzip -p python/dist/*.whl '*/_bundled/sbom.cdx.json' > "$RUNNER_TEMP/python-sbom.cdx.json"
+          cmp "$RUNNER_TEMP/npm-sbom.cdx.json" "$RUNNER_TEMP/python-sbom.cdx.json"
+      - name: Smoke-test npm tarball
+        run: | # zizmor: ignore[adhoc-packages] Installs only the local, validated tarball in an isolated prefix.
+          mkdir -p "$RUNNER_TEMP/npm-smoke"
+          npm install --ignore-scripts --prefix "$RUNNER_TEMP/npm-smoke" release-artifacts/npm/*.tgz
+          node scripts/smoke-stdio.mjs "$RUNNER_TEMP/npm-smoke/node_modules/.bin/discord-mcp"
+      - name: Smoke-test Python wheel
+        run: |
+          uv venv "$RUNNER_TEMP/python-smoke"
+          uv pip install --python "$RUNNER_TEMP/python-smoke/bin/python" python/dist/*.whl
+          node scripts/smoke-stdio.mjs "$RUNNER_TEMP/python-smoke/bin/hypark-discord-mcp"
+      - name: Build and smoke-test release container
+        run: |
+          docker build --tag discord-mcp:release --build-arg VERSION="${GITHUB_REF_NAME#v}" --build-arg REVISION="$GITHUB_SHA" .
+          CONTAINER="$(docker create discord-mcp:release)"
+          docker cp "$CONTAINER:/app/bundle/discord-mcp.cjs" "$RUNNER_TEMP/docker-bundle.cjs"
+          docker cp "$CONTAINER:/app/bundle/THIRD_PARTY_NOTICES.txt" "$RUNNER_TEMP/docker-notices.txt"
+          docker cp "$CONTAINER:/app/bundle/sbom.cdx.json" "$RUNNER_TEMP/docker-sbom.cdx.json"
+          docker rm "$CONTAINER"
+          cmp bundle/discord-mcp.cjs "$RUNNER_TEMP/docker-bundle.cjs"
+          cmp bundle/THIRD_PARTY_NOTICES.txt "$RUNNER_TEMP/docker-notices.txt"
+          cmp bundle/sbom.cdx.json "$RUNNER_TEMP/docker-sbom.cdx.json"
+          node scripts/smoke-stdio.mjs docker run --rm -i -e DISCORD_TOKEN=smoke-test-token discord-mcp:release
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-package
+          path: release-artifacts/npm/*.tgz
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pypi-package
+          path: python/dist/*
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mcpb-package
+          path: |
+            release-artifacts/mcpb/*.mcpb
+            release-artifacts/mcpb/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+  npm:
+    name: Publish npm
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # Authenticate npm Trusted Publishing through GitHub OIDC.
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+      - name: Verify npm Trusted Publishing support
+        run: |
+          NPM_VERSION="$(npm --version)"
+          node -e 'const [major, minor] = process.argv[1].split(".").map(Number); if (major < 11 || (major === 11 && minor < 5)) process.exit(1)' "$NPM_VERSION"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: npm-package
+          path: artifacts
+      - id: npm_status
+        name: Check existing npm version
+        run: |
+          STATUS="$(node scripts/verify-published-artifacts.mjs npm artifacts/*.tgz)"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+      - if: steps.npm_status.outputs.status == 'missing'
+        name: Publish npm package
+        run: npm publish artifacts/*.tgz --access public --provenance
+      - if: steps.npm_status.outputs.status == 'matching'
+        name: Reuse matching npm package
+        run: |
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "$PACKAGE_NAME@$VERSION already has the same integrity; skipping."
+
+  pypi:
+    name: Publish PyPI
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write # Authenticate PyPI Trusted Publishing through GitHub OIDC.
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: pypi-package
+          path: dist
+      - id: pypi_status
+        name: Check existing PyPI version
+        run: |
+          STATUS="$(node scripts/verify-published-artifacts.mjs pypi dist/*)"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+      - if: steps.pypi_status.outputs.status == 'missing'
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
+        with:
+          packages-dir: dist/
+      - if: steps.pypi_status.outputs.status == 'matching'
+        run: echo "The existing PyPI files have matching SHA-256 digests; skipping."
+
+  container:
+    name: Publish GHCR
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      packages: write # Push the release image to this repository's GHCR package.
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: npm-package
+          path: artifacts
+      - id: image_status
+        name: Check immutable version image
+        env:
+          ACTOR: ${{ github.actor }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/discord-mcp
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          REGISTRY_TOKEN="$(curl --fail --silent --show-error \
+            --user "$ACTOR:$GH_TOKEN" \
+            --get \
+            --data-urlencode service=ghcr.io \
+            --data-urlencode "scope=repository:$OWNER/discord-mcp:pull" \
+            https://ghcr.io/token | jq -er '.token')"
+          ACCEPT='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
+          VERSION_HEADERS="$RUNNER_TEMP/version-manifest-headers.txt"
+          STATUS="$(curl --silent --show-error --head \
+            --header "Authorization: Bearer $REGISTRY_TOKEN" \
+            --header "Accept: $ACCEPT" \
+            --output "$VERSION_HEADERS" \
+            --write-out '%{http_code}' \
+            "https://ghcr.io/v2/$OWNER/discord-mcp/manifests/$VERSION")"
+
+          if test "$STATUS" = 200; then
+            DIGEST="$(awk 'tolower($1) == "docker-content-digest:" { gsub(/\r/, "", $2); print $2 }' "$VERSION_HEADERS" | tail -1)"
+            [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+            docker buildx imagetools inspect --raw "$IMAGE@$DIGEST" > "$RUNNER_TEMP/version-image.json"
+            jq --exit-status \
+              '[.manifests[]? | select(.platform.os == "linux") | .platform.architecture] | sort == ["amd64", "arm64"]' \
+              "$RUNNER_TEMP/version-image.json" >/dev/null
+            tar -xOzf artifacts/*.tgz package/bundle/discord-mcp.cjs > "$RUNNER_TEMP/npm-bundle.cjs"
+            tar -xOzf artifacts/*.tgz package/bundle/THIRD_PARTY_NOTICES.txt > "$RUNNER_TEMP/npm-notices.txt"
+            tar -xOzf artifacts/*.tgz package/bundle/sbom.cdx.json > "$RUNNER_TEMP/npm-sbom.cdx.json"
+
+            for ARCH in amd64 arm64; do
+              CHILD_DIGEST="$(jq -r --arg arch "$ARCH" \
+                '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest' \
+                "$RUNNER_TEMP/version-image.json")"
+              [[ "$CHILD_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+              CHILD_IMAGE="$IMAGE@$CHILD_DIGEST"
+              docker pull --platform "linux/$ARCH" "$CHILD_IMAGE"
+              REVISION="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$CHILD_IMAGE")"
+              IMAGE_VERSION="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$CHILD_IMAGE")"
+              SOURCE="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$CHILD_IMAGE")"
+              test "$REVISION" = "$GITHUB_SHA"
+              test "$IMAGE_VERSION" = "$VERSION"
+              test "$SOURCE" = "https://github.com/$GITHUB_REPOSITORY"
+
+              CONTAINER="$(docker create --platform "linux/$ARCH" "$CHILD_IMAGE")"
+              docker cp "$CONTAINER:/app/bundle/discord-mcp.cjs" "$RUNNER_TEMP/ghcr-$ARCH-bundle.cjs"
+              docker cp "$CONTAINER:/app/bundle/THIRD_PARTY_NOTICES.txt" "$RUNNER_TEMP/ghcr-$ARCH-notices.txt"
+              docker cp "$CONTAINER:/app/bundle/sbom.cdx.json" "$RUNNER_TEMP/ghcr-$ARCH-sbom.cdx.json"
+              docker rm "$CONTAINER"
+              cmp "$RUNNER_TEMP/npm-bundle.cjs" "$RUNNER_TEMP/ghcr-$ARCH-bundle.cjs"
+              cmp "$RUNNER_TEMP/npm-notices.txt" "$RUNNER_TEMP/ghcr-$ARCH-notices.txt"
+              cmp "$RUNNER_TEMP/npm-sbom.cdx.json" "$RUNNER_TEMP/ghcr-$ARCH-sbom.cdx.json"
+            done
+
+            FINAL_HEADERS="$RUNNER_TEMP/final-version-manifest-headers.txt"
+            FINAL_STATUS="$(curl --silent --show-error --head \
+              --header "Authorization: Bearer $REGISTRY_TOKEN" \
+              --header "Accept: $ACCEPT" \
+              --output "$FINAL_HEADERS" \
+              --write-out '%{http_code}' \
+              "https://ghcr.io/v2/$OWNER/discord-mcp/manifests/$VERSION")"
+            test "$FINAL_STATUS" = 200
+            FINAL_TAG_DIGEST="$(awk 'tolower($1) == "docker-content-digest:" { gsub(/\r/, "", $2); print $2 }' "$FINAL_HEADERS" | tail -1)"
+            test "$FINAL_TAG_DIGEST" = "$DIGEST"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          elif test "$STATUS" = 404; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            cat "$VERSION_HEADERS" >&2
+            echo "GHCR manifest lookup failed with HTTP $STATUS." >&2
+            exit 1
+          fi
+      - id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/discord-mcp
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+      - id: build
+        if: steps.image_status.outputs.exists != 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            REVISION=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+      - name: Promote non-regressing GHCR aliases
+        env:
+          ACTOR: ${{ github.actor }}
+          DIGEST: ${{ steps.image_status.outputs.digest || steps.build.outputs.digest }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/discord-mcp
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          test -n "$MAJOR" && test -n "$MINOR" && test -n "$PATCH"
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          REGISTRY_TOKEN="$(curl --fail --silent --show-error \
+            --user "$ACTOR:$GH_TOKEN" \
+            --get \
+            --data-urlencode service=ghcr.io \
+            --data-urlencode "scope=repository:$OWNER/discord-mcp:pull" \
+            https://ghcr.io/token | jq -er '.token')"
+          ACCEPT='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
+
+          for ALIAS_TAG in "$MAJOR.$MINOR" "$MAJOR" latest; do
+            ALIAS="$IMAGE:$ALIAS_TAG"
+            CURRENT_VERSION=""
+            ALIAS_HEADERS="$RUNNER_TEMP/alias-$ALIAS_TAG-headers.txt"
+            STATUS="$(curl --silent --show-error --head \
+              --header "Authorization: Bearer $REGISTRY_TOKEN" \
+              --header "Accept: $ACCEPT" \
+              --output "$ALIAS_HEADERS" \
+              --write-out '%{http_code}' \
+              "https://ghcr.io/v2/$OWNER/discord-mcp/manifests/$ALIAS_TAG")"
+            if test "$STATUS" = 200; then
+              CURRENT_DIGEST="$(awk 'tolower($1) == "docker-content-digest:" { gsub(/\r/, "", $2); print $2 }' "$ALIAS_HEADERS" | tail -1)"
+              [[ "$CURRENT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+              docker pull "$IMAGE@$CURRENT_DIGEST" >/dev/null
+              CURRENT_VERSION="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$IMAGE@$CURRENT_DIGEST")"
+              [[ "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+              if test "$ALIAS_TAG" = "$MAJOR.$MINOR"; then
+                [[ "$CURRENT_VERSION" == "$MAJOR.$MINOR."* ]]
+              elif test "$ALIAS_TAG" = "$MAJOR"; then
+                [[ "$CURRENT_VERSION" == "$MAJOR."* ]]
+              fi
+              if node -e '
+                const [current, candidate] = process.argv.slice(1).map((value) => value.split(".").map(Number));
+                for (let index = 0; index < 3; index += 1) {
+                  if (current[index] !== candidate[index]) process.exit(current[index] > candidate[index] ? 0 : 1);
+                }
+                process.exit(1);
+              ' "$CURRENT_VERSION" "$VERSION"; then
+                echo "Keeping newer alias $ALIAS at $CURRENT_VERSION."
+                continue
+              fi
+            elif test "$STATUS" != 404; then
+              cat "$ALIAS_HEADERS" >&2
+              echo "GHCR alias lookup failed with HTTP $STATUS." >&2
+              exit 1
+            fi
+
+            docker buildx imagetools create --tag "$ALIAS" "$IMAGE@$DIGEST"
+            FINAL_ALIAS_HEADERS="$RUNNER_TEMP/final-alias-$ALIAS_TAG-headers.txt"
+            FINAL_ALIAS_STATUS="$(curl --silent --show-error --head \
+              --header "Authorization: Bearer $REGISTRY_TOKEN" \
+              --header "Accept: $ACCEPT" \
+              --output "$FINAL_ALIAS_HEADERS" \
+              --write-out '%{http_code}' \
+              "https://ghcr.io/v2/$OWNER/discord-mcp/manifests/$ALIAS_TAG")"
+            test "$FINAL_ALIAS_STATUS" = 200
+            ALIAS_DIGEST="$(awk 'tolower($1) == "docker-content-digest:" { gsub(/\r/, "", $2); print $2 }' "$FINAL_ALIAS_HEADERS" | tail -1)"
+            test "$ALIAS_DIGEST" = "$DIGEST"
+          done
+
+  github-release:
+    name: Publish Claude Desktop MCPB
+    needs: [npm, pypi, container]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write # Create the GitHub Release and upload its immutable assets.
+      id-token: write # Sign artifact provenance with a short-lived Sigstore identity.
+      attestations: write # Store the signed MCPB provenance in GitHub Attestations.
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: mcpb-package
+          path: release-assets
+      - name: Validate exact MCPB release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          MCPB="release-assets/discord-mcp-${GITHUB_REF_NAME#v}.mcpb"
+          CHECKSUM="$MCPB.sha256"
+          test -f "$MCPB"
+          test -f "$CHECKSUM"
+          ASSETS=(release-assets/*)
+          test "${#ASSETS[@]}" -eq 2
+          (cd release-assets && sha256sum --check "$(basename "$CHECKSUM")")
+      - uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: release-assets/*
+      - name: Create or safely reuse GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          MCPB="release-assets/discord-mcp-${GITHUB_REF_NAME#v}.mcpb"
+          CHECKSUM="$MCPB.sha256"
+          ASSETS=(release-assets/*)
+
+          TAG_ENCODED="$(jq -rn --arg value "$GITHUB_REF_NAME" '$value | @uri')"
+          gh api \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG_ENCODED" \
+            --silent
+
+          RELEASES="$RUNNER_TEMP/releases.json"
+          RELEASE="$RUNNER_TEMP/release.json"
+          gh api --paginate --slurp \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASES"
+
+          COUNT="$(
+            jq --arg tag "$GITHUB_REF_NAME" \
+              '[.[][] | select(.tag_name == $tag)] | length' \
+              "$RELEASES"
+          )"
+          if test "$COUNT" -eq 0; then
+            gh api --method POST \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "repos/$GITHUB_REPOSITORY/releases" \
+              -f "tag_name=$GITHUB_REF_NAME" \
+              -f "name=$GITHUB_REF_NAME" \
+              -F draft=true \
+              -F prerelease=false \
+              -F generate_release_notes=true > "$RELEASE"
+          elif test "$COUNT" -eq 1; then
+            jq --arg tag "$GITHUB_REF_NAME" \
+              '[.[][] | select(.tag_name == $tag)] | .[0]' \
+              "$RELEASES" > "$RELEASE"
+          else
+            echo "Multiple releases unexpectedly use tag $GITHUB_REF_NAME." >&2
+            exit 1
+          fi
+
+          test "$(jq -r '.prerelease' "$RELEASE")" = false
+          RELEASE_ID="$(jq -r '.id' "$RELEASE")"
+          WAS_DRAFT="$(jq -r '.draft' "$RELEASE")"
+          REMOTE_ASSETS="$RUNNER_TEMP/remote-assets.json"
+          gh api --paginate --slurp \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100" \
+            > "$REMOTE_ASSETS"
+
+          EXPECTED_NAMES="$RUNNER_TEMP/expected-asset-names.txt"
+          REMOTE_NAMES="$RUNNER_TEMP/remote-asset-names.txt"
+          UNEXPECTED_NAMES="$RUNNER_TEMP/unexpected-asset-names.txt"
+          for LOCAL in "${ASSETS[@]}"; do
+            basename "$LOCAL"
+          done | sort > "$EXPECTED_NAMES"
+          jq -r '.[][] | .name' "$REMOTE_ASSETS" | sort > "$REMOTE_NAMES"
+          comm -13 "$EXPECTED_NAMES" "$REMOTE_NAMES" > "$UNEXPECTED_NAMES"
+          if test -s "$UNEXPECTED_NAMES"; then
+            echo "Refusing a release with unexpected existing assets:" >&2
+            cat "$UNEXPECTED_NAMES" >&2
+            exit 1
+          fi
+
+          for LOCAL in "${ASSETS[@]}"; do
+            NAME="$(basename "$LOCAL")"
+            MATCHES="$(
+              jq --arg name "$NAME" \
+                '[.[][] | select(.name == $name)] | length' \
+                "$REMOTE_ASSETS"
+            )"
+            if test "$MATCHES" -eq 1; then
+              ASSET_ID="$(
+                jq -r --arg name "$NAME" \
+                  '.[][] | select(.name == $name) | .id' \
+                  "$REMOTE_ASSETS"
+              )"
+              REMOTE="$RUNNER_TEMP/remote-$NAME"
+              gh api \
+                -H "Accept: application/octet-stream" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+                > "$REMOTE"
+              if ! cmp --silent "$LOCAL" "$REMOTE"; then
+                echo "Refusing to overwrite differing release asset: $NAME" >&2
+                sha256sum "$LOCAL" "$REMOTE" >&2
+                exit 1
+              fi
+              echo "Reusing identical release asset: $NAME"
+            elif test "$MATCHES" -eq 0; then
+              NAME_ENCODED="$(jq -rn --arg value "$NAME" '$value | @uri')"
+              RESPONSE="$RUNNER_TEMP/upload-$NAME.json"
+              curl --fail-with-body --silent --show-error \
+                --request POST \
+                --header "Accept: application/vnd.github+json" \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header "X-GitHub-Api-Version: 2022-11-28" \
+                --header "Content-Type: application/octet-stream" \
+                --data-binary "@$LOCAL" \
+                --output "$RESPONSE" \
+                "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$NAME_ENCODED"
+              test "$(jq -r '.state' "$RESPONSE")" = uploaded
+            else
+              echo "Duplicate release assets unexpectedly use name $NAME." >&2
+              exit 1
+            fi
+          done
+
+          FINAL_REMOTE_ASSETS="$RUNNER_TEMP/final-remote-assets.json"
+          FINAL_REMOTE_NAMES="$RUNNER_TEMP/final-remote-asset-names.txt"
+          gh api --paginate --slurp \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100" \
+            > "$FINAL_REMOTE_ASSETS"
+          jq -r '.[][] | .name' "$FINAL_REMOTE_ASSETS" | sort > "$FINAL_REMOTE_NAMES"
+          diff --unified "$EXPECTED_NAMES" "$FINAL_REMOTE_NAMES"
+
+          if test "$WAS_DRAFT" = true; then
+            gh api --method PATCH \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+              -F draft=false \
+              -F prerelease=false \
+              --silent
+          fi
+
+  mcp-registry:
+    name: Publish MCP Registry metadata
+    needs: [npm, pypi, container]
+    runs-on: ubuntu-latest
+    environment: mcp-registry
+    permissions:
+      contents: read
+      id-token: write # Authenticate the MCP Registry publisher through GitHub OIDC.
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+      - id: registry_status
+        name: Check immutable MCP Registry version
+        run: |
+          SERVER_NAME="$(node -p "encodeURIComponent(require('./server.json').name)")"
+          VERSION="$(node -p "encodeURIComponent(require('./server.json').version)")"
+          RESPONSE="$RUNNER_TEMP/mcp-registry-version.json"
+          STATUS="$(curl --silent --show-error \
+            --output "$RESPONSE" \
+            --write-out '%{http_code}' \
+            "https://registry.modelcontextprotocol.io/v0.1/servers/$SERVER_NAME/versions/$VERSION")"
+          if test "$STATUS" = 404; then
+            echo "status=missing" >> "$GITHUB_OUTPUT"
+          elif test "$STATUS" = 200; then
+            jq --sort-keys 'del(."$schema", ._meta)' server.json > "$RUNNER_TEMP/local-server.json"
+            jq --sort-keys '.server | del(."$schema", ._meta)' "$RESPONSE" > "$RUNNER_TEMP/remote-server.json"
+            diff --unified "$RUNNER_TEMP/local-server.json" "$RUNNER_TEMP/remote-server.json"
+            echo "status=existing" >> "$GITHUB_OUTPUT"
+          else
+            cat "$RESPONSE" >&2
+            exit 1
+          fi
+      - if: steps.registry_status.outputs.status == 'missing'
+        name: Install MCP publisher
+        run: |
+          PUBLISHER_VERSION=1.8.0
+          PUBLISHER_SHA256=1370446bbe74d562608e8005a6ccce02d146a661fbd78674e11cc70b9618d6cf
+          PUBLISHER_ARCHIVE=mcp-publisher_linux_amd64.tar.gz
+          curl --fail --show-error --location \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v${PUBLISHER_VERSION}/${PUBLISHER_ARCHIVE}" \
+            --output "$PUBLISHER_ARCHIVE"
+          echo "$PUBLISHER_SHA256  $PUBLISHER_ARCHIVE" | sha256sum --check --strict
+          tar xzf "$PUBLISHER_ARCHIVE" mcp-publisher
+      - if: steps.registry_status.outputs.status == 'missing'
+        run: ./mcp-publisher login github-oidc
+      - if: steps.registry_status.outputs.status == 'missing'
+        name: Publish registry metadata
+        run: |
+          for attempt in 1 2 3; do
+            ./mcp-publisher publish && exit 0
+            test "$attempt" = 3 && exit 1
+            sleep 20
+          done
+      - if: steps.registry_status.outputs.status == 'existing'
+        run: echo "This immutable MCP Registry version already exists; skipping."
