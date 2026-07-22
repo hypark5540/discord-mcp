@@ -258,6 +258,7 @@ const result = await build({
   format: "cjs",
   target: "node22",
   packages: "bundle",
+  tsconfig: resolve(root, "tsconfig.json"),
   legalComments: "eof",
   metafile: true,
   sourcemap: false,

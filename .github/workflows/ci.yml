@@ -175,6 +175,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/npm-package"
           npm pack --pack-destination "$RUNNER_TEMP/npm-package"
+          shopt -s nullglob
           TARBALLS=("$RUNNER_TEMP"/npm-package/*.tgz)
           test "${#TARBALLS[@]}" -eq 1
           printf 'TARBALL=%s\n' "${TARBALLS[0]}" >> "$GITHUB_ENV"
