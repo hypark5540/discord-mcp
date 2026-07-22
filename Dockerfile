@@ -5,6 +5,7 @@ FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm run deps:locked
+COPY tsconfig.json ./
 COPY licenses ./licenses
 COPY scripts ./scripts
 COPY src ./src

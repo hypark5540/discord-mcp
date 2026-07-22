@@ -175,21 +175,24 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/npm-package"
           npm pack --pack-destination "$RUNNER_TEMP/npm-package"
+          TARBALLS=("$RUNNER_TEMP"/npm-package/*.tgz)
+          test "${#TARBALLS[@]}" -eq 1
+          printf 'TARBALL=%s\n' "${TARBALLS[0]}" >> "$GITHUB_ENV"
       - name: npx
         run: |
-          npx --yes --package="$RUNNER_TEMP"/npm-package/*.tgz -- discord-mcp --version
-          npx --yes --package="$RUNNER_TEMP"/npm-package/*.tgz -- hypark-discord-mcp --version
+          npx --yes --package="$TARBALL" -- discord-mcp --version
+          npx --yes --package="$TARBALL" -- hypark-discord-mcp --version
       - name: pnpm dlx
         run: |
           corepack enable
           corepack prepare pnpm@11.15.1 --activate
-          pnpm dlx --package="$RUNNER_TEMP"/npm-package/*.tgz discord-mcp --version
+          pnpm dlx --package="$TARBALL" discord-mcp --version
       - name: Yarn dlx
         run: |
           corepack prepare yarn@4.17.1 --activate
-          yarn dlx -p "$RUNNER_TEMP"/npm-package/*.tgz discord-mcp --version
+          yarn dlx -p "$TARBALL" discord-mcp --version
       - name: bunx
-        run: bunx --package "$RUNNER_TEMP"/npm-package/*.tgz discord-mcp --version
+        run: bunx --package "$TARBALL" discord-mcp --version
 
   docker:
     name: Docker stdio
