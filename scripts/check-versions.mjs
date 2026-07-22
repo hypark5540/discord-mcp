@@ -104,9 +104,9 @@ assert(
   "The official MCPB CLI must stay exactly pinned to 2.1.2 in package and lock metadata.",
 );
 assert(
-  packageJson.devDependencies?.fflate === "0.8.2" &&
-    packageLock.packages?.["node_modules/fflate"]?.version === "0.8.2",
-  "The deterministic ZIP implementation must stay exactly pinned to fflate 0.8.2.",
+  packageJson.devDependencies?.fflate === "0.8.3" &&
+    packageLock.packages?.["node_modules/fflate"]?.version === "0.8.3",
+  "The deterministic ZIP implementation must stay exactly pinned to fflate 0.8.3.",
 );
 assert(
   packageJson.overrides?.["@hono/node-server"] === "2.0.11" &&
