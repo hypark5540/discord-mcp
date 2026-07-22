@@ -1,6 +1,6 @@
 {
   "name": "@hypark5540/discord-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A safe, configurable Model Context Protocol server for Discord",
   "type": "module",
   "mcpName": "io.github.hypark5540/discord-mcp",

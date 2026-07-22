@@ -2,7 +2,7 @@
   "mcpServers": {
     "discord": {
       "command": "npx",
-      "args": ["-y", "@hypark5540/discord-mcp@0.1.0"],
+      "args": ["-y", "@hypark5540/discord-mcp@0.1.1"],
       "env": {
         "DISCORD_TOKEN": "replace-with-your-bot-token",
         "DISCORD_ENABLE_WRITES": "false",

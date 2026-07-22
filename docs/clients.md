@@ -1,6 +1,6 @@
 # MCP 클라이언트 연결 가이드
 
-이 문서는 Discord MCP `0.1.0`을 ChatGPT Desktop/Codex, Claude Desktop,
+이 문서는 Discord MCP `0.1.1`을 ChatGPT Desktop/Codex, Claude Desktop,
 Cursor, Gemini CLI와 그 밖의 stdio MCP 클라이언트에 연결하는 방법을 정리합니다.
 모든 방식은 기본 read-only이며, Discord Bot Token은 설치 링크나 저장소에 포함하지
 않습니다.
@@ -18,7 +18,7 @@ Cursor, Gemini CLI와 그 밖의 stdio MCP 클라이언트에 연결하는 방�
 ## Cursor
 
 README의 공식 **Add to Cursor** 버튼을 누르면 정확히 고정된
-`@hypark5540/discord-mcp@0.1.0` stdio 설정이 설치됩니다. 링크 안에는 토큰 대신
+`@hypark5540/discord-mcp@0.1.1` stdio 설정이 설치됩니다. 링크 안에는 토큰 대신
 `${env:DISCORD_TOKEN}` 참조만 들어 있습니다. Cursor를 시작하는 환경에
 `DISCORD_TOKEN`을 안전하게 설정한 뒤 버튼을 사용하세요.
 
@@ -30,7 +30,7 @@ README의 공식 **Add to Cursor** 버튼을 누르면 정확히 고정된
   "mcpServers": {
     "discord": {
       "command": "npx",
-      "args": ["-y", "@hypark5540/discord-mcp@0.1.0"],
+      "args": ["-y", "@hypark5540/discord-mcp@0.1.1"],
       "env": {
         "DISCORD_TOKEN": "${env:DISCORD_TOKEN}",
         "DISCORD_ENABLE_WRITES": "false",
@@ -47,7 +47,7 @@ Cursor의 Base64 설치 링크는 설정을 운반할 뿐 암호화하지 않습
 
 ## Claude Desktop
 
-GitHub Release에서 `discord-mcp-0.1.0.mcpb`와 같은 이름의 `.sha256` 파일을 내려받아
+GitHub Release에서 `discord-mcp-0.1.1.mcpb`와 같은 이름의 `.sha256` 파일을 내려받아
 SHA-256을 확인한 뒤, MCPB를 더블클릭하거나 Claude Desktop의 Extensions 화면으로
 끌어 놓습니다. 설치 화면이 Discord Bot Token을
 요청하며, `sensitive`로 선언된 토큰은 운영체제 keychain/credential manager에
@@ -57,7 +57,7 @@ SHA-256을 확인한 뒤, MCPB를 더블클릭하거나 Claude Desktop의 Extens
 GitHub CLI가 있으면 설치 전에 서명된 build provenance도 확인할 수 있습니다.
 
 ```bash
-gh attestation verify --repo hypark5540/discord-mcp discord-mcp-0.1.0.mcpb
+gh attestation verify --repo hypark5540/discord-mcp discord-mcp-0.1.1.mcpb
 ```
 
 MCPB에는 다음 파일이 모두 포함되므로 별도의 npm 설치가 필요하지 않습니다.
@@ -81,7 +81,7 @@ server/sbom.cdx.json
 저장소의 `gemini-extension.json`을 사용하는 확장으로 설치합니다.
 
 ```bash
-gemini extensions install https://github.com/hypark5540/discord-mcp --ref=v0.1.0
+gemini extensions install https://github.com/hypark5540/discord-mcp --ref=v0.1.1
 ```
 
 설치 확인 화면을 검토하고 Discord Bot Token 설정을 입력합니다. 매니페스트의
@@ -110,7 +110,7 @@ ChatGPT Desktop의 로컬 MCP와 Codex CLI/IDE는 `~/.codex/config.toml`을 공�
 ```toml
 [mcp_servers.discord]
 command = "npx"
-args = ["-y", "@hypark5540/discord-mcp@0.1.0"]
+args = ["-y", "@hypark5540/discord-mcp@0.1.1"]
 env_vars = ["DISCORD_TOKEN"]
 
 [mcp_servers.discord.env]
@@ -134,7 +134,7 @@ Claude Code를 시작하는 환경에 `DISCORD_TOKEN`을 먼저 안전하게 설
 명령행이나 설정 파일에 복사하지 않고 다음 명령으로 사용자 범위에 등록할 수 있습니다.
 
 ```bash
-claude mcp add --scope user discord -- npx -y @hypark5540/discord-mcp@0.1.0
+claude mcp add --scope user discord -- npx -y @hypark5540/discord-mcp@0.1.1
 claude mcp get discord
 ```
 
@@ -145,7 +145,7 @@ secret 입력 UI를 우선 사용하세요.
 ```json
 {
   "command": "npx",
-  "args": ["-y", "@hypark5540/discord-mcp@0.1.0"],
+  "args": ["-y", "@hypark5540/discord-mcp@0.1.1"],
   "env": {
     "DISCORD_TOKEN": "<use-the-client-secret-store>",
     "DISCORD_ENABLE_WRITES": "false",

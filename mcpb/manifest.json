@@ -3,7 +3,7 @@
   "manifest_version": "0.3",
   "name": "discord-mcp",
   "display_name": "Discord MCP",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Safe, configurable Discord access through the Model Context Protocol",
   "long_description": "Read Discord servers, channels, and messages through a local MCP server. Message writes and deletes remain disabled unless the user explicitly enables them, and allowlists can restrict access to selected guilds and channels.",
   "author": {

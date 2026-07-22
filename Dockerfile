@@ -14,7 +14,7 @@ RUN test -s bundle/sbom.cdx.json
 
 FROM ${NODE_IMAGE} AS runtime
 
-ARG VERSION=0.1.0
+ARG VERSION=0.1.1
 ARG REVISION=unknown
 
 LABEL org.opencontainers.image.title="Discord MCP" \

@@ -1,22 +1,22 @@
 # AI에게 설치를 맡기는 가이드
 
 ChatGPT, Claude, Cursor, Gemini 또는 코딩 에이전트가 현재 환경을 확인하고 Discord
-MCP `0.1.0`을 설치하도록 요청할 때 사용할 수 있는 안내입니다. 에이전트가 파일을
+MCP `0.1.1`을 설치하도록 요청할 때 사용할 수 있는 안내입니다. 에이전트가 파일을
 편집할 수 있어도 비밀 입력만큼은 사용자가 클라이언트의 keychain UI나 안전한
 환경변수 경로에서 직접 완료해야 합니다.
 
 ## 복사해서 사용할 프롬프트
 
 ```text
-Discord MCP @hypark5540/discord-mcp@0.1.0을 이 클라이언트에 설치해줘.
+Discord MCP @hypark5540/discord-mcp@0.1.1을 이 클라이언트에 설치해줘.
 
 1. 현재 클라이언트가 무엇인지 먼저 확인하고 공식 방식 하나만 선택해:
    - Cursor: README의 공식 cursor:// MCP install link
-   - Claude Desktop: GitHub Release의 discord-mcp-0.1.0.mcpb
-   - Gemini CLI: gemini-extension.json을 v0.1.0 tag에서 설치
+   - Claude Desktop: GitHub Release의 discord-mcp-0.1.1.mcpb
+   - Gemini CLI: gemini-extension.json을 v0.1.1 tag에서 설치
    - ChatGPT Desktop/Codex: ~/.codex/config.toml의 local stdio MCP 설정
-   - 기타: npx -y @hypark5540/discord-mcp@0.1.0 stdio 설정
-2. 패키지 버전은 latest가 아니라 반드시 0.1.0으로 고정해.
+   - 기타: npx -y @hypark5540/discord-mcp@0.1.1 stdio 설정
+2. 패키지 버전은 latest가 아니라 반드시 0.1.1으로 고정해.
 3. Discord Bot Token을 프롬프트, 명령 인자, Git 파일, 설치 URL, 로그에 쓰지 마.
    Claude/Gemini에서는 sensitive keychain 입력을 사용하고, Cursor/Codex에서는
    DISCORD_TOKEN 환경변수 참조만 설정해. 비밀 입력이 필요하면 나에게 UI에서

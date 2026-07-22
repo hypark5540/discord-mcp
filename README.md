@@ -101,14 +101,14 @@ MCP resource도 함께 제공합니다.
 
 | 채널 | 실행 명령 | 필요한 런타임 |
 | --- | --- | --- |
-| npm / npx | `npx -y @hypark5540/discord-mcp@0.1.0` | Node.js 22+ |
-| pnpm | `pnpm dlx --package=@hypark5540/discord-mcp@0.1.0 discord-mcp` | Node.js 22+ |
-| Yarn | `yarn dlx -p @hypark5540/discord-mcp@0.1.0 discord-mcp` | Node.js 22+ |
-| Bun 패키지 실행기 | `bunx --package @hypark5540/discord-mcp@0.1.0 discord-mcp` | Bun + Node.js 22+ |
-| PyPI / uvx | `uvx --from hypark-discord-mcp==0.1.0 discord-mcp` | Python 3.9+ + Node.js 22+ |
-| PyPI / pipx | `pipx run --spec hypark-discord-mcp==0.1.0 discord-mcp` | Python 3.9+ + Node.js 22+ |
+| npm / npx | `npx -y @hypark5540/discord-mcp@0.1.1` | Node.js 22+ |
+| pnpm | `pnpm dlx --package=@hypark5540/discord-mcp@0.1.1 discord-mcp` | Node.js 22+ |
+| Yarn | `yarn dlx -p @hypark5540/discord-mcp@0.1.1 discord-mcp` | Node.js 22+ |
+| Bun 패키지 실행기 | `bunx --package @hypark5540/discord-mcp@0.1.1 discord-mcp` | Bun + Node.js 22+ |
+| PyPI / uvx | `uvx --from hypark-discord-mcp==0.1.1 discord-mcp` | Python 3.9+ + Node.js 22+ |
+| PyPI / pipx | `pipx run --spec hypark-discord-mcp==0.1.1 discord-mcp` | Python 3.9+ + Node.js 22+ |
 | Docker / GHCR | 아래 `docker run` 예시 | Docker |
-| Claude Desktop MCPB | GitHub Release의 `discord-mcp-0.1.0.mcpb` | Claude Desktop |
+| Claude Desktop MCPB | GitHub Release의 `discord-mcp-0.1.1.mcpb` | Claude Desktop |
 | MCP Registry | `io.github.hypark5540/discord-mcp` | 클라이언트가 선택한 패키지에 따름 |
 
 `bunx`는 npm 패키지 설치 프런트엔드로 지원합니다. Node shebang을 그대로 실행하며
@@ -118,8 +118,8 @@ Bun 자체 런타임을 강제하는 `bunx --bun` 모드는 지원 범위가 아
 있습니다.
 
 ```bash
-npm install --global @hypark5540/discord-mcp@0.1.0
-pip install hypark-discord-mcp==0.1.0
+npm install --global @hypark5540/discord-mcp@0.1.1
+pip install hypark-discord-mcp==0.1.1
 hypark-discord-mcp --version
 ```
 
@@ -136,7 +136,7 @@ Docker에서는 `-i`로 stdio를 유지하고 `-t`는 사용하지 않습니다.
 docker run --rm -i \
   -e DISCORD_TOKEN \
   -e DISCORD_ENABLE_WRITES=false \
-  ghcr.io/hypark5540/discord-mcp:0.1.0
+  ghcr.io/hypark5540/discord-mcp:0.1.1
 ```
 
 ## 3. 클라이언트 원터치 연결
@@ -147,20 +147,20 @@ docker run --rm -i \
 토큰은 링크에 들어 있지 않고 `${env:DISCORD_TOKEN}`을 참조하므로, Cursor를
 시작하는 환경에 먼저 안전하게 설정하세요.
 
-[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.png)](cursor://anysphere.cursor-deeplink/mcp/install?name=discord-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBoeXBhcms1NTQwL2Rpc2NvcmQtbWNwQDAuMS4wIl0sImVudiI6eyJESVNDT1JEX1RPS0VOIjoiJHtlbnY6RElTQ09SRF9UT0tFTn0iLCJESVNDT1JEX0VOQUJMRV9XUklURVMiOiJmYWxzZSIsIkRJU0NPUkRfRU5BQkxFX0RFTEVURVMiOiJmYWxzZSIsIkRJU0NPUkRfQUxMT1dfVU5SRVNUUklDVEVEX1dSSVRFUyI6ImZhbHNlIn19)
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.png)](cursor://anysphere.cursor-deeplink/mcp/install?name=discord-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBoeXBhcms1NTQwL2Rpc2NvcmQtbWNwQDAuMS4xIl0sImVudiI6eyJESVNDT1JEX1RPS0VOIjoiJHtlbnY6RElTQ09SRF9UT0tFTn0iLCJESVNDT1JEX0VOQUJMRV9XUklURVMiOiJmYWxzZSIsIkRJU0NPUkRfRU5BQkxFX0RFTEVURVMiOiJmYWxzZSIsIkRJU0NPUkRfQUxMT1dfVU5SRVNUUklDVEVEX1dSSVRFUyI6ImZhbHNlIn19)
 
 PyPI처럼 `cursor://` 링크를 제거하는 페이지에서 보고 있다면
 [GitHub README의 Cursor 섹션](https://github.com/hypark5540/discord-mcp#cursor)에서 버튼을 누르세요.
 
 ### Claude Desktop
 
-[Claude Desktop용 `discord-mcp-0.1.0.mcpb`를 다운로드](https://github.com/hypark5540/discord-mcp/releases/download/v0.1.0/discord-mcp-0.1.0.mcpb)한 뒤
+[Claude Desktop용 `discord-mcp-0.1.1.mcpb`를 다운로드](https://github.com/hypark5540/discord-mcp/releases/download/v0.1.1/discord-mcp-0.1.1.mcpb)한 뒤
 파일을 열면 설치 화면이 나타납니다. Discord Bot Token은 MCPB 안에 저장되지 않고,
 설치 화면의 sensitive 입력을 통해 운영체제 keychain/credential manager에
 보관됩니다. 같은 릴리스의
-[SHA-256 파일](https://github.com/hypark5540/discord-mcp/releases/download/v0.1.0/discord-mcp-0.1.0.mcpb.sha256)로
+[SHA-256 파일](https://github.com/hypark5540/discord-mcp/releases/download/v0.1.1/discord-mcp-0.1.1.mcpb.sha256)로
 다운로드한 번들을 확인할 수 있습니다. GitHub CLI가 있으면
-`gh attestation verify --repo hypark5540/discord-mcp discord-mcp-0.1.0.mcpb`로 릴리스
+`gh attestation verify --repo hypark5540/discord-mcp discord-mcp-0.1.1.mcpb`로 릴리스
 워크플로의 서명된 provenance도 검증할 수 있습니다.
 
 ### Gemini CLI
@@ -168,7 +168,7 @@ PyPI처럼 `cursor://` 링크를 제거하는 페이지에서 보고 있다면
 Gemini CLI는 저장소의 공식 Extension 매니페스트를 직접 설치할 수 있습니다.
 
 ```bash
-gemini extensions install https://github.com/hypark5540/discord-mcp --ref=v0.1.0
+gemini extensions install https://github.com/hypark5540/discord-mcp --ref=v0.1.1
 ```
 
 설치 중 Token 설정은 `sensitive: true`이므로 시스템 keychain에 저장됩니다. 확인
@@ -228,7 +228,7 @@ npm 패키지를 실행하도록 등록하는 예시입니다. 클라이언트�
   "mcpServers": {
     "discord": {
       "command": "npx",
-      "args": ["-y", "@hypark5540/discord-mcp@0.1.0"],
+      "args": ["-y", "@hypark5540/discord-mcp@0.1.1"],
       "env": {
         "DISCORD_TOKEN": "<use-the-client-secret-store>",
         "DISCORD_ENABLE_WRITES": "false",
@@ -246,7 +246,7 @@ uvx를 선호하면 실행 부분만 다음처럼 바꿀 수 있습니다.
 ```json
 {
   "command": "uvx",
-  "args": ["--from", "hypark-discord-mcp==0.1.0", "discord-mcp"]
+  "args": ["--from", "hypark-discord-mcp==0.1.1", "discord-mcp"]
 }
 ```
 

@@ -157,12 +157,20 @@ jobs:
           path: artifacts
       - id: npm_status
         name: Check existing npm version
+        shell: bash
         run: |
-          STATUS="$(node scripts/verify-published-artifacts.mjs npm artifacts/*.tgz)"
+          set -euo pipefail
+          shopt -s nullglob
+          TARBALLS=("$GITHUB_WORKSPACE"/artifacts/*.tgz)
+          test "${#TARBALLS[@]}" -eq 1
+          NPM_TARBALL="${TARBALLS[0]}"
+          test -f "$NPM_TARBALL"
+          STATUS="$(node scripts/verify-published-artifacts.mjs npm "$NPM_TARBALL")"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          printf 'NPM_TARBALL=%s\n' "$NPM_TARBALL" >> "$GITHUB_ENV"
       - if: steps.npm_status.outputs.status == 'missing'
         name: Publish npm package
-        run: npm publish artifacts/*.tgz --access public --provenance
+        run: npm publish "$NPM_TARBALL" --access public --provenance
       - if: steps.npm_status.outputs.status == 'matching'
         name: Reuse matching npm package
         run: |

@@ -5,7 +5,7 @@ This project ships one TypeScript implementation through four artifact formats:
 - npm: `@hypark5540/discord-mcp`
 - PyPI: `hypark-discord-mcp` (a Python launcher containing the bundled JS)
 - OCI/GHCR: `ghcr.io/hypark5540/discord-mcp`
-- Claude Desktop MCPB: `discord-mcp-0.1.0.mcpb` on GitHub Releases
+- Claude Desktop MCPB: `discord-mcp-0.1.1.mcpb` on GitHub Releases
 
 The official MCP Registry entry is `io.github.hypark5540/discord-mcp` and links
 the npm, PyPI, and OCI packages. Registry and package names are intentionally
@@ -33,11 +33,11 @@ any reproducibility drift. Release validation pins Node `24.18.0`, npm `11.16.0`
 4. Enable private vulnerability reporting. Keep GitHub Actions permissions at
    the least privilege requested by each workflow job.
 
-### 2. Bootstrap npm without sacrificing 0.1.0 provenance
+### 2. Bootstrap npm without sacrificing 0.1.1 provenance
 
 npm requires the package to exist before `npm trust` can configure an OIDC
 publisher. Publish the inert `0.0.0` bootstrap under the non-default
-`bootstrap` dist-tag, then let GitHub Actions publish the real `0.1.0` package
+`bootstrap` dist-tag, then let GitHub Actions publish the real `0.1.1` package
 with provenance.
 
 The following wrapper uses the exact Node release from the workflow and
@@ -76,7 +76,7 @@ exact values:
 - Workflow: `release.yml`
 - Environment: `pypi`
 
-The first `0.1.0` upload can then be created directly by GitHub OIDC; no PyPI
+The first `0.1.1` upload can then be created directly by GitHub OIDC; no PyPI
 API token or manual placeholder release is needed.
 
 ### 4. First GHCR and MCP Registry publication
@@ -122,8 +122,8 @@ rebuilds only the reviewed, lockfile-pinned `esbuild@0.28.1` package.
 Commit the version update, create an immutable matching tag, and push it:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 The workflow then:
@@ -144,7 +144,7 @@ After the first successful real npm release, deprecate the inert bootstrap:
 
 ```bash
 npx --yes --package=node@24.18.0 --package=npm@11.18.0 \
-  --call 'npm deprecate @hypark5540/discord-mcp@0.0.0 "Bootstrap only; use 0.1.0 or later."'
+  --call 'npm deprecate @hypark5540/discord-mcp@0.0.0 "Bootstrap only; use 0.1.1 or later."'
 ```
 
 ## Failure and retry policy
