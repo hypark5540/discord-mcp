@@ -204,7 +204,7 @@ jobs:
           STATUS="$(node scripts/verify-published-artifacts.mjs pypi dist/*)"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
       - if: steps.pypi_status.outputs.status == 'missing'
-        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           packages-dir: dist/
       - if: steps.pypi_status.outputs.status == 'matching'
@@ -224,7 +224,7 @@ jobs:
           persist-credentials: false
       - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
-      - uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -430,7 +430,7 @@ jobs:
           ASSETS=(release-assets/*)
           test "${#ASSETS[@]}" -eq 2
           (cd release-assets && sha256sum --check "$(basename "$CHECKSUM")")
-      - uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: release-assets/*
       - name: Create or safely reuse GitHub Release
